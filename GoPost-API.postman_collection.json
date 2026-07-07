@@ -1,0 +1,403 @@
+{
+	"info": {
+		"_postman_id": "b6f2a6b0-6e0a-4b8a-9b3d-9c1a5f2e7a10",
+		"name": "GoPost API",
+		"description": "Colección para probar la API REST de GoPost (usuarios + posts con autenticación JWT).\n\nFlujo recomendado:\n1. Ejecutar \"Sign Up\" (opcional si el usuario ya existe).\n2. Ejecutar \"Login\" — guarda automáticamente el token JWT en la variable de colección `token`.\n3. Ejecutar cualquier request protegido (usan `{{token}}` automáticamente vía Bearer Auth).\n4. Ejecutar \"Create Post\" — guarda automáticamente el id del post creado en `postId`, usado por Get/Update/Delete Post By ID.\n\nVariables de colección usadas: `baseUrl`, `token`, `userId`, `postId`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Verifica que el servidor esté corriendo. Devuelve texto plano, no JSON."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Sign Up",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Status code es 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if (pm.response.code === 201) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set(\"userId\", json.user.id);",
+									"    pm.test(\"La respuesta trae el usuario creado (sin password)\", function () {",
+									"        pm.expect(json.user).to.have.property(\"id\");",
+									"        pm.expect(json.user).to.not.have.property(\"password\");",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Juan Pérez\",\n  \"email\": \"juan@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/signup",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"signup"
+							]
+						},
+						"description": "Registra un nuevo usuario. Público, no requiere token.\n\nCambia el email si ya lo usaste antes (el servicio rechaza emails duplicados)."
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Status code es 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"if (pm.response.code === 200) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set(\"token\", json.token);",
+									"    pm.test(\"La respuesta trae un token\", function () {",
+									"        pm.expect(json.token).to.be.a(\"string\").and.not.empty;",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"juan@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"login"
+							]
+						},
+						"description": "Inicia sesión y obtiene un JWT. Público.\n\nGuarda el token automáticamente en la variable de colección `token`, que usan todos los requests protegidos de esta colección."
+					},
+					"response": []
+				},
+				{
+					"name": "Me (perfil autenticado)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"me"
+							]
+						},
+						"description": "Devuelve los datos del usuario autenticado (requiere token de Login)."
+					},
+					"response": []
+				}
+			],
+			"description": "Registro, login y perfil del usuario autenticado."
+		},
+		{
+			"name": "Posts",
+			"item": [
+				{
+					"name": "Get All Posts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/posts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"posts"
+							]
+						},
+						"description": "Lista todos los posts de todos los usuarios. Público, sin paginación."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Post By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/posts/{{postId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"posts",
+								"{{postId}}"
+							]
+						},
+						"description": "Obtiene un post específico. Público.\n\nUsa la variable `postId`, fijada automáticamente al ejecutar \"Create Post\"."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Posts By User ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}/posts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}",
+								"posts"
+							]
+						},
+						"description": "Lista los posts de un usuario específico. Público.\n\nUsa la variable `userId`, fijada automáticamente al ejecutar \"Sign Up\"."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Post",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test(\"Status code es 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"if (pm.response.code === 201) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set(\"postId\", json.post.id);",
+									"    pm.test(\"La respuesta trae el post creado\", function () {",
+									"        pm.expect(json.post).to.have.property(\"id\");",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Mi primer post\",\n  \"content\": \"Este es el contenido de mi post\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/posts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"posts"
+							]
+						},
+						"description": "Crea un post para el usuario autenticado (requiere token). Guarda el id creado en `postId`."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Posts",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/posts/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"posts",
+								"me"
+							]
+						},
+						"description": "Lista los posts del usuario autenticado (requiere token)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Post",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Título actualizado\",\n  \"content\": \"Contenido actualizado\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/posts/{{postId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"posts",
+								"{{postId}}"
+							]
+						},
+						"description": "Actualiza un post propio (requiere token; 403 si no eres el autor, 404 si no existe)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Post",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/posts/{{postId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"posts",
+								"{{postId}}"
+							]
+						},
+						"description": "Elimina un post propio (requiere token; 403 si no eres el autor, 404 si no existe)."
+					},
+					"response": []
+				}
+			],
+			"description": "CRUD de posts: 4 endpoints públicos de lectura + creación/actualización/eliminación protegidas por JWT y verificación de propiedad."
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5050",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "postId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
